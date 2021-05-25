@@ -1,0 +1,353 @@
+[core]
+	editor = \"C:\\Users\\RyuJ\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe\" --wait
+	autocrlf = input
+    sparsecheckout = true
+[user]
+	name = Ryu, Jiman
+	email = jiman.ryu@3dsystems.com
+[difftool "sourcetree"]
+	cmd = 'C:/Program Files/WinMerge/WinMergeU.exe' \"$LOCAL\" \"$REMOTE\"
+[mergetool "sourcetree"]
+	cmd = 'C:/Program Files/Perforce/p4merge.exe' \"$BASE\" \"$LOCAL\" \"$REMOTE\" \"$MERGED\"
+	trustExitCode = true
+[winUpdater]
+	recentlySeenVersion = 2.24.1.windows.2
+[filter "lfs"]
+	process = git-lfs filter-process
+	required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+[http]
+	sslVerify = true
+	sslBackend = schannel
+[alias]
+	alias-basic = "!#----------------------------------------------------------;\n\
+        git alias | head -7"
+    ci = commit
+    co = checkout
+	ch = "!git checkout $(git branch-select)"
+	s = status -s
+    assume   = update-index --assume-unchanged
+    assumed  = "!git ls-files -v | grep ^h | cut -c 3-"
+    unassume = update-index --no-assume-unchanged
+    pruneall = "!# prune branches and tags.;\n\
+                git remote prune origin; \
+                git fetch --prune origin +refs/tags/*:refs/tags/*"
+    show-evicted = "!kubectl get pod | grep Evicted | awk '{print $1}'"
+    delete-evicted = "!kubectl get pod | grep Evicted | awk '{print $1}' | xargs kubectl delete pod"
+	a = "! # add files with fzf preview diffs; \n\
+        f() { \
+            _height=$(stty size | awk '{print $1}');\
+            git s | fzf -m --preview \"git diff {2} | head -n $_height | pygmentize\" | awk '{print $2}' | xargs git add; \
+        }; f"
+	alias-log = "!#----------------------------------------------------------;\n\
+        git alias | egrep 'log|commit-'"
+    commit-select = "!# Select a commit hash from log graph.;\n\
+        git l \
+        | fzf -m --ansi --layout=reverse --preview=\"echo {} | sed 's/^[*| ]*//g' | cut -d' ' -f1 | xargs git show --color=always \" \
+        | sed 's/^[*| ]*//g' | cut -d' ' -f1"
+    c-s = "!git commit-select"
+    commit-copy = "!# Select & copy a commit hash from log graph.;\n\
+        git commit-select | pbcopy && echo Copied : `pbpaste`;"
+    c-c = "!git commit-copy"
+    l = "log \
+        --color --graph --decorate \
+        --date=format:'%Y-%m-%d' \
+        --abbrev-commit \
+        --pretty=format:'%C(red)%h%C(auto)%d %s %C(green)(%cr)%C(bold blue) %an'"
+    ld = "log \
+        --color --graph --decorate \
+        --date=format:'%Y-%m-%d %H:%M:%S' \
+        --abbrev-commit \
+        --pretty=format:'%C(red)%h%C(auto)%d %s %C(green)(%ad)%C(bold blue) %an'"
+    ll = "log \
+        --color --graph --decorate \
+        --date=format:'%Y-%m-%d' \
+        --abbrev-commit \
+        --pretty=format:'%C(red)%H%C(auto)%d %s %C(green)(%cr)%C(bold blue) %an'"
+    lld = "log \
+        --color --graph --decorate \
+        --date=format:'%Y-%m-%d %H:%M:%S' \
+        --abbrev-commit \
+        --pretty=format:'%C(red)%H%C(auto)%d %s %C(green)(%ad)%C(bold blue) %an'"
+    lh = "!# Show log graph | head \n\
+        f() { \
+            if [ $# = 0 ]; then \
+                git l -25; \
+            else \
+                git l -$1; \
+            fi; \
+            echo ''; \
+        }; f"
+    ranking = "!# List commit counts of contributors;\n\
+        git shortlog -sn"
+
+	alias-branch = "!#----------------------------------------------------------;\n\
+        git alias | egrep '[bB]ranch'"
+    b0 = "!# Print current branch.;\n\
+        git branch | awk '/^\\*/{print $2}'"
+    back = "!# Back up current branch.;\n\
+        echo created new branch: backup-`git b0`;\
+        git branch backup-`git b0`"
+    bb = "!# Branch tools. Type 'git bb help'.;\n\
+        f() { \n\
+            if [ $# = 0 ]; then \
+                git branch-select | xargs git checkout; \
+            elif [ $1 = 'help' ]; then \
+                echo 'git bb           : Select and checkout branch'; \
+                echo 'git bb c, clean  : Clean all merged branches'; \
+                echo 'git bb d, D      : Delete seleted branches(D: force)'; \
+                echo 'git bb l, list   : List branches excluding the current branch'; \
+                echo 'git bb m, merged : List merged branches excluding the current and master branches'; \
+            elif [ $1 = 'd' -o $1 = 'D' ]; then \
+                git branch -$1 $(git bb list | fzf -m | awk '{print $2}'); \
+            elif [ $1 = 'clean' -o $1 = 'c' ]; then \
+                git branch-clean; \
+            elif [ $1 = 'list' -o $1 = 'l' ]; then \
+                git branch-list; \
+            elif [ $1 = 'merged' -o $1 = 'm' ]; then \
+                git branch --merged | grep -v '^\\*\\|\\<master$\\|\\<dev$'; \
+            elif [ $1 = 'select' -o $1 = 's' ]; then \
+                git branch-select; \
+            else \
+                git bb help; \
+            fi; \
+        }; f"
+    branch-clean = "!# Search and delete merged branches.;\n\
+        curr_hash=`git show -s | head -1 | cut -d ' ' -f2`; \
+        for branch in `find .git/refs -type f | fzf --ansi -m --preview=\"cat {} | xargs git l\"` ; do \
+            hash=`cat $branch`; \
+            if [ $hash = $curr_hash ]; then \
+                continue; \
+            fi; \
+            git ll | egrep $hash -C 1; \
+            read -p \"Delete $branch? [y|n] \" -r; \
+            REPLY=${REPLY:-"n"}; \
+            if [ $REPLY = \"y\" ]; then \
+                rm $branch; \
+                echo \"\\033[32m$branch \\033[0mhas been\\033[31m deleted\\033[0m.\n\"; \
+            fi; \
+        done"
+    b-c = "!git branch-clean"
+    branch-list = "!# List the branches.;\n\
+        git for-each-ref --sort=-committerdate refs/heads --format='%(HEAD) %(refname:strip=2) | %(committerdate:relative) | %(authorname)' \
+        | column -ts'|' \
+        | sed 's/^ /./'"
+    b-l = "!git branch-list"
+    branch-list-all = "!# List all branches.;\n\
+        for branch in `git branch -r --merged | grep -v HEAD`; do echo `git show --format=\"%ci ; %cr ; %an ;\" $branch | head -n 1` $branch; done | sort -r | column -ts';'"
+    b-la = "!git branch-list-all"
+    branch-select = "!# Select a branch.;\n\
+        f() { \
+            _height=$(stty size | awk '{print $1}');\
+            git branch-list | fzf --preview \"git l {2} | head -n $_height\" | awk '{print $2}'; \
+        }; f"
+    b-s = "!git branch-select"
+    sync = "!# Sync with a branch with the same name in the remote repo.;\n\
+        remote=$( \
+            { \
+                git remote -v | egrep '^(origin|upstream)\\s'; \
+                git remote -v | egrep -v '^(origin|upstream)\\s' | sort; \
+            } \
+            | awk '{print $1, $2}' | uniq \
+            | column -t \
+            | fzf | awk '{print $1}' \
+        ); \
+        if ! [ -z $remote ]; then \
+            git fetch $remote && git reset --hard $remote/`git b0`; \
+        fi"
+    update = "!# Synchronize the contents of local files with the repository;\n\
+        remote=$( \
+            { \
+                git remote -v | egrep '^(origin|upstream)\\s'; \
+                git remote -v | egrep -v '^(origin|upstream)\\s' | sort; \
+            } \
+            | awk '{print $1, $2}' | uniq \
+            | column -t \
+            | fzf | awk '{print $1}' \
+        ); \
+        git stash; git pull --rebase $remote `git b0`; git stash pop;"
+
+	alias-stage = "!#----------------------------------------------------------;\n\
+        git alias | egrep '(add|diff|stage)' -i"
+    a = "!# Select files and Add them.;\n\
+        git diff-select | xargs git add"
+    a-c = "!# Add, Commit.;\n\
+        git a; git commit"
+    diff-info = "!# Print diff report.;\n\
+        fileA=/tmp/git-s-$(uuidgen); \
+        fileB=/tmp/git-diff-$(uuidgen); \
+        git s | awk '{print $2,$1}' > $fileA; \
+        git diff --numstat | awk '{print $3,$1,$2}' > $fileB; \
+        join -t' ' -a 1 $fileA $fileB | awk '{print $2, \"(+\"$3 \",-\"$4\")\", $1}' | sed 's/(+,-)/./; s/^\\([^?]\\) *\\./\\1 STAGED/' | column -t -s' ' ; \
+        rm -f $fileA $fileB; \
+    "
+    diff-select = "!# Select changed files to add them.;\n\
+        f() { \
+            git diff-info \
+            | egrep -v '[^?] *STAGED ' \
+            | fzf -m --header \"$(git diff --shortstat)\" --preview \
+                \"if [[ {1} == '??' ]]; then bat {3}; else git diff --color=always {3}; fi\" \
+            | awk '{print $3}'; \
+        }; f"
+    diff-unselect = "!# Select staged files to unstage them.;\n\
+        f() { \
+            git diff-info \
+            | egrep '[^?] *STAGED ' \
+            | fzf -m --header \"$(git diff --shortstat)\" --preview \
+                \"if [[ {1} == '??' ]]; then pygmentize {3}; else git diff --color=always --cached {3}; fi\" \
+            | awk '{print $3}'; \
+        }; f"
+    unstage = "!# Select staged files and Unstage them.;\n\
+        git diff-unselect | xargs git reset HEAD"
+
+	alias-stash = "!#----------------------------------------------------------;\n\
+        git alias | grep stash"
+    stash-apply = "!# Select a stash item and Apply it.;\n\
+        git stash-op apply"
+    s-a = "!git stash-apply"
+    stash-drop= "!# Select the stash items and Drop them.;\n\
+        for sid in $(git stash-select -m) ; do \
+            git stash drop $sid; \
+        done;"
+    s-d = "!git stash-drop"
+    stash-list = "!# List stash items.;\n\
+        git stash list --pretty=format:\"%C(red)%gd%C(reset) %C(green)(%cr) %C(reset)%s\""
+    s-l = "!git stash-list"
+    stash-pop= "!# Select a stash item and Pop it.;\n\
+        git stash-op pop"
+    s-p = "!git stash-pop"
+    stash-save = "!# Save changes into the stash stack.;\n \
+        git diff-info; \
+        read -p \"save message: \" msg; \
+        git stash save \"$msg\""
+    s-s = "!git stash-save"
+    stash-select = "!# Select stash item(s).;\n\
+        f() { \
+            git stash-list \
+            | fzf --ansi $1 --preview \"git stash show -p {1} --color=always\" \
+            | cut -d' ' -f1; \
+        }; f"
+    stash-op = "!#A private stash tool.;\nf() { git stash-select | xargs git stash $1; }; f"
+	alias-aws = "!#----------------------------------------------------------;\n\
+        git alias | grep aws"
+    aws-npm-login = "!# Login AWS CodeArtifact .\n\
+        echo $ aws codeartifact login --tool npm --repository 3ds-sbu --domain jx --domain-owner 067478703568;\n \
+        aws codeartifact login --tool npm --repository 3ds-sbu --domain jx --domain-owner 067478703568"
+    npm-reset = "!# Reset NPM Registry to default - https://registry.npmjs.org/ .\n\
+        echo $ npm config set registry https://registry.npmjs.org/;\n \
+        npm config set registry https://registry.npmjs.org/"        
+    alias-eks = "!#----------------------------------------------------------;\n\
+        git alias | grep eks"
+    cc = "!# AWS EKS Context Creation Tool. Type 'git cc help'.;\n\
+        f() { \n\
+            if [ $# = 0 ]; then \
+                echo $ kubectl config current-context;\n \
+                kubectl config current-context; \
+            elif [ $1 = 'help' ]; then \
+                echo 'git cc           : get the current-context'; \
+                echo 'git cc dev       : aws eks update-kubeconfig - jx-dev'; \
+                echo 'git cc staging   : aws eks update-kubeconfig - jx-staging'; \
+                echo 'git cc demo      : aws eks update-kubeconfig - jx-demo'; \
+            elif [ $1 = 'd' -o $1 = 'dev' ]; then \
+                echo $ aws eks update-kubeconfig --name jx-dev --region us-west-2 --profile jx-dev --alias jx-dev;\n \
+                aws eks update-kubeconfig --name jx-dev --region us-west-2 --profile jx-dev --alias jx-dev; \
+            elif [ $1 = 's' -o $1 = 'staging' ]; then \
+                echo $ aws eks update-kubeconfig --name jx-staging --region ap-northeast-2 --profile jx-staging --alias jx-staging;\n \
+                aws eks update-kubeconfig --name jx-staging --region ap-northeast-2 --profile jx-staging --alias jx-staging; \
+            elif [ $1 = 'demo' ]; then \
+                echo $ aws eks update-kubeconfig --name jx-demo --region eu-central-1 --profile jx-demo --alias jx-demo;\n \
+                aws eks update-kubeconfig --name jx-demo --region eu-central-1 --profile jx-demo --alias jx-demo; \
+            else \
+                git cc help; \
+            fi; \
+        }; f"
+    sc = "!# AWS EKS Context Switch Tool. Type 'git sc help'.;\n\
+        f() { \n\
+            if [ $# = 0 ]; then \
+                echo $ kubectl config current-context;\n \
+                kubectl config current-context; \
+            elif [ $1 = 'help' ]; then \
+                echo 'git sc           : get the current-context'; \
+                echo 'git sc dev       : kubectl config use-context jx-dev'; \
+                echo 'git sc staging   : kubectl config use-context jx-staging'; \
+            elif [ $1 = 'd' -o $1 = 'dev' ]; then \
+                echo $ kubectl config use-context jx-dev;\n \
+                kubectl config use-context jx-dev; \
+            elif [ $1 = 's' -o $1 = 'staging' ]; then \
+                echo $ kubectl config use-context jx-staging;\n \
+                kubectl config use-context jx-staging; \
+            elif [ $1 = 'demo' ]; then \
+                echo $ kubectl config use-context jx-demo;\n \
+                kubectl config use-context jx-demo; \
+            else \
+                git sc help; \
+            fi; \
+        }; f"
+    gt = "!# Get Token Tool. Type 'git gt help'.;\n\
+        f() { \n\
+            if [ $# = 0 ]; then \
+                git gt help; \
+            elif [ $1 = 'help' ]; then \
+                echo 'git gt (help)    : get Get-Token help'; \
+                echo 'git gt kube      : git get-token-kube'; \
+                echo 'git gt grafana   : git get-token-grafana'; \
+            elif [ $1 = 'k' -o $1 = 'kube' ]; then \
+                git get-token-kube; \
+            elif [ $1 = 'g' -o $1 = 'grafana' ]; then \
+                git get-token-grafana; \
+            else \
+                git gt help; \
+            fi; \
+        }; f"
+    get-token-kube = "!# Get the current kubectl context and kube-dashboard token.\n\
+        echo The Current-Context of kubectl:;\n \
+        kubectl config current-context; \
+        git eks-kube-dashboard-get-token"
+    eks-kube-dashboard-get-token = "!# Get Token for kube-dashboards running on AWS EKS.\n\
+        kubectl -n infra describe secret $(kubectl -n infra get secret | grep admin-user | awk '{print $1}') | grep tok"
+    get-token-grafana = "!# Get the current kubectl context and grafana token.\n\
+        echo The Current-Context of kubectl:;\n \
+        kubectl config current-context; \
+        git eks-grafana-get-token"
+    eks-grafana-get-token = "!# Get Token for Grafana running on AWS EKS.\n\
+        kubectl -n default get secret app-grafana -o jsonpath="{.data.admin-password}" | base64 --decode"
+    
+    alias-etc = "!#----------------------------------------------------------;\n\
+        git alias | grep etc"
+
+    d-prod           = "!cd -- ${GIT_PREFIX:-.}; git etc-compose-prod"
+    etc-compose-prod = "!echo 'Running >>> $ docker-compose -f docker-compose.prod.yaml' $@ ; \
+                        cd -- ${GIT_PREFIX:-.}; \
+                        docker-compose -f docker-compose.prod.yaml"
+    d-test           = "!cd -- ${GIT_PREFIX:-.}; git etc-compose-test"
+    etc-compose-test = "!echo 'Running >>> $ docker-compose -f docker-compose.prod.yaml -f docker-compose.test.yaml' $@ ; \
+                        cd -- ${GIT_PREFIX:-.}; \
+                        docker-compose -f docker-compose.prod.yaml -f docker-compose.test.yaml"
+	alias-alias = "!#----------------------------------------------------------;\n\
+        git alias | grep alias"
+	alias = "!# Prints all aliases.;\n\
+		git config --list \
+		| egrep '^alias.+' \
+		| sed -e 's/^alias\\.//' \
+		| sed -e 's/^[^=]*=/\\'$'\\033[31m&\\033[(B\\033[m/' \
+		| column -t -s'=' \
+		| sed 's/!#* *//; s/;$//' \
+		| cut -c1-85"
+	 alias-doctor = "!# Check the dependency tools.;\n\
+    f() { \
+        if [ $(which pygmentize | wc -l) -lt 1 ]; then \
+            echo 'Not found : Pygments(pygmentize)'; \
+            echo '    see     : http://pygments.org/'; \
+            echo '    install : pip3 install Pygments'; \
+            echo '';\
+        fi; \
+        if [ $(which fzf | wc -l) -lt 1 ]; then \
+            echo 'Not found : fzf'; \
+            echo '    see          : https://github.com/junegunn/fzf#installation'; \
+            echo '    install(Mac) : brew install fzf'; \
+            echo '    install(git) : git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf'; \
+            echo '                   ~/.fzf/install'; \
+            echo '';\
+        fi; \
+    }; f"
